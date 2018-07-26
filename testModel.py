@@ -114,7 +114,7 @@ class Slide2VecScoringModel(object):
             rids = np.array(rids)
         # Loss calculatoin needs to know result Ids and query Ids.
         lossObject = LambdaRankLoss(max_k=max_k)
-        optiObject = SGD(lr=0.00001, decay=1e-5, momentum=0.4, nesterov=True)
+        optiObject = SGD(lr=0.001, decay=1e-5, momentum=0.4, nesterov=True)
         # optiObject = Adam(lr=0.01, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
         self.model.compile(loss=lossObject, optimizer=optiObject)
         # self.model.compile(loss="mean_squared_error", optimizer=optiObject)
@@ -132,7 +132,7 @@ class Slide2VecScoringModel(object):
         # DONT shuffle.
         ## IMPORTANT ##
         plot_model(self.model, to_file="plot.png")
-        self.model.fit(x_to_send, y_to_send, batch_size=num_samples, shuffle=False, epochs=2000)
+        self.model.fit(x_to_send, y_to_send, batch_size=num_samples, shuffle=False, epochs=10000)
 
     def predict(self, X, rids, qids):
         # Prepare inputs and send to model.fit.

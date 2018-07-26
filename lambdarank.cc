@@ -145,6 +145,7 @@ public:
         _ranknet_cost() = 0;
         _lambdarank_cost() = 0;
         _discrete_metric() = 0;
+        int pairCount = 0;
 
         // Initialize lambdas.
         for (int i = 0; i < n_samples + 1; i++)
@@ -217,7 +218,7 @@ public:
                     double basic_value = 0;
                     double cross_lambda_ij = 0;
 
-                    if (_y(i) > _y(j))
+                    if (int(_y(i)) > int(_y(j)))
                     {
                         cross_lambda_ij = -abs_swap_delta_ij / (1 + exp(_y_pred(i) - _y_pred(j)));
 
@@ -236,7 +237,7 @@ public:
 
                         basic_value = log(1 + exp(_y_pred(j) - _y_pred(i)));
                     }
-                    else if (_y(i) < _y(j))
+                    else if (int(_y(i)) < int(_y(j)))
                     {
                         cross_lambda_ij = abs_swap_delta_ij / (1 + exp(_y_pred(j) - _y_pred(i)));
 
@@ -263,6 +264,7 @@ public:
 
                     _lambdarank_cost_query += abs_swap_delta_ij * basic_value;
                     _ranknet_cost_query += basic_value;
+                    pairCount++;
                     // cout << "\n" << i << ", " << j << " -> " << basic_value;
                 }
             }
@@ -272,7 +274,19 @@ public:
             _discrete_metric() += _cur_discrete_metric;
             // cout << "Done computing lambdas" << endl; cout.flush();
         } while (b != n_samples);
-        // cout << _ranknet_cost() << ", " << _lambdarank_cost() << ", " << _discrete_metric() << endl;
+
+        // Scale everything so that max value is 1 and can be compared for goodness.
+        _ranknet_cost() *= 100.0 / n_samples;
+        _lambdarank_cost() *= 100.0 / n_samples;
+        _discrete_metric() /= num_queries;
+        for (int i = 0; i < n_samples; i++)
+        {
+            _lambdas(i) *= 100.0 / n_samples;
+        }
+        cout <<"pairCount="<< pairCount << ", num_queries=" << num_queries
+            << ", RankNetCost="<< _ranknet_cost()
+            << ", LambdaRankCost=" << _lambdarank_cost()
+            << ", DiscreteMetric=" << _discrete_metric() << endl;
     }
 };
 
