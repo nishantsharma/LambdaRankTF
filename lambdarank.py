@@ -26,8 +26,10 @@ def LambdaRankGradient(op,
     :param grad: gradient with respect to the output of the `lambdarank` op.
     :return: gradients with respect to the input of `lambdarank`.
     """
+    # import pdb;pdb.set_trace()
     lambdas = op.outputs[3]
     grad_wrt_ypred = tf.multiply(grad_lambdarank_cost, lambdas)
+    # import pdb;pdb.set_trace()
     return [None, None, grad_wrt_ypred]
 
 class LambdaRankLoss(object):

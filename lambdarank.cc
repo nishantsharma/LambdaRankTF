@@ -33,12 +33,12 @@ using namespace boost;
 REGISTER_OP("LambdaRank")
   .Attr("max_k: int")
   .Input("qid: int32")
-  .Input("y: float")
-  .Input("y_pred: float")
-  .Output("ranknet_cost: float")
-  .Output("lambdarank_cost: float")
-  .Output("discrete_metric: float")
-  .Output("lambdas: float")
+  .Input("y: double")
+  .Input("y_pred: double")
+  .Output("ranknet_cost: double")
+  .Output("lambdarank_cost: double")
+  .Output("discrete_metric: double")
+  .Output("lambdas: double")
   .SetShapeFn([](::tensorflow::shape_inference::InferenceContext* c) {
     shape_inference::ShapeHandle qid_shape, y_shape, y_pred_shape;
     TF_RETURN_IF_ERROR(c->WithRank(c->input(0), 1, &qid_shape));
@@ -83,7 +83,7 @@ public:
     /// \brief Compute the LambdaRank.
     /// \param context
     void Compute(OpKernelContext* context) override {
-        cout << "\nStarted compute\n"; cout.flush();
+        // cout << "\nStarted compute\n"; cout.flush();
         // some checks to be sure ...
         DCHECK_EQ(3, context->num_inputs());
         // Get the input tensors.
@@ -101,6 +101,7 @@ public:
         int max_k = (this->max_k > n_samples) ? n_samples : this->max_k;
         DCHECK_EQ(y.dim_size(0), n_samples);
         DCHECK_EQ(y_pred.dim_size(0), n_samples);
+        // cout <<"NUM_SAMPLES="<< n_samples;
 
         // create output shapes
         TensorShape lambdas_shape;
@@ -108,29 +109,37 @@ public:
         TensorShape scalar_shape;
 
         // create output tensors
-        Tensor* lambdas = NULL;
-        OP_REQUIRES_OK(context, context->allocate_output(0, lambdas_shape, &lambdas));
-
         Tensor *ranknet_cost = NULL;
-        Tensor *lambdarank_cost = NULL, *discrete_metric = NULL;
-        Tensor *cost_factors_curr = NULL, *lambdarank_cost_prev_delta = NULL;
+        Tensor *lambdarank_cost = NULL;
+        Tensor *discrete_metric = NULL;
+        Tensor* lambdas = NULL;
+
         OP_REQUIRES_OK(context, context->allocate_output(0, scalar_shape, &ranknet_cost));
-        OP_REQUIRES_OK(context, context->allocate_output(0, scalar_shape, &lambdarank_cost));
-        OP_REQUIRES_OK(context, context->allocate_output(0, scalar_shape, &discrete_metric));
+        OP_REQUIRES_OK(context, context->allocate_output(1, scalar_shape, &lambdarank_cost));
+        OP_REQUIRES_OK(context, context->allocate_output(2, scalar_shape, &discrete_metric));
+        OP_REQUIRES_OK(context, context->allocate_output(3, lambdas_shape, &lambdas));
 
         // Eigen tensors for input data access
         auto _qid = qid.vec<int32>();
-        auto _y = y.vec<float>();
-        auto _y_pred = y_pred.vec<float>();
+        auto _y = y.vec<double>();
+        auto _y_pred = y_pred.vec<double>();
+#if 0
         cout << "Moved compute              | | | | | | | | | | | | |\n"; cout.flush();
-        cout << _qid; cout.flush();
+        for (int i = 0; i < n_samples; i++)
+        {
+            cout << endl<<i<<": "<<_qid(i) << ", " <<_y(i) << ", " <<_y_pred(i) << ".";
+            cout.flush();
+        }
         cout << "Printed stuff              | | | | | | | | | | | | |\n"; cout.flush();
+        cout << "Printed stuff              | | | | | | | | | | | | |\n"; cout.flush();
+        cout << "Printed stuff              | | | | | | | | | | | | |\n"; cout.flush();
+#endif
 
         // Eigen tensors for output data access
-        auto _lambdas = lambdas->vec<float>();
-        auto _ranknet_cost = ranknet_cost->scalar<float>();
-        auto _lambdarank_cost = lambdarank_cost->scalar<float>();
-        auto _discrete_metric = discrete_metric->scalar<float>();
+        auto _lambdas = lambdas->vec<double>();
+        auto _ranknet_cost = ranknet_cost->scalar<double>();
+        auto _lambdarank_cost = lambdarank_cost->scalar<double>();
+        auto _discrete_metric = discrete_metric->scalar<double>();
 
         // Initialize scores.
         _ranknet_cost() = 0;
@@ -146,25 +155,24 @@ public:
         // Used to calcualte NDCG and delta-NDCG.
         RunningNDCG runningNDCG(max_k);
 
-        int a = 0, b = -1;
+        int a = -1, b = 0;
         int num_queries = 0;
         do
         {
             // a marks the first samples for query _qid[a].
             // Find b, such that [a, b) is an closed-open interval containing all samples
             // of query ID same as _qid[a].
-            b = a;
-            cout << "\nLoop starts with qids" << _qid(0) << "," << _qid(1) << endl; cout.flush();
+            a = b;
+            // cout << "\nLoop starts with qids" << _qid(0) << "," << _qid(1) << endl; cout.flush();
             while (b != n_samples && _qid(a) == _qid(b))
             {
                 b++;
-                cout << _qid(b); cout.flush();
             }
 
             // Number of samples in the current query.
             int n_query_samples = b - a;
 
-            cout << "Current query range "<<a<<", "<<b<<endl; cout.flush();
+            // cout << "Current query range "<<a<<", "<<b<<endl; cout.flush();
             // Increment number of queries found.
             num_queries++;
 
@@ -179,35 +187,35 @@ public:
                     || (_y_pred(i) == _y_pred(j) && _y(i) < _y(j));
             }
             );
-            cout << "After sorting" << endl; cout.flush();
+            // cout << "After sorting" << endl; cout.flush();
 
             // targetsForCurrentRanking = y[currentRankingWithinQuery]
-            std::vector<float> targetsForCurrentRanking(b - a);
+            std::vector<double> targetsForCurrentRanking(b - a);
             std::transform(currentRankingWithinQuery.begin(),
                 currentRankingWithinQuery.end(),
                 targetsForCurrentRanking.begin(),
                 [&_y](int i) {return _y(i); });
 
-            cout << "After transform." << endl; cout.flush();
-            float _cur_discrete_metric = runningNDCG.init(
+            // cout << "After transform." << endl; cout.flush();
+            double _cur_discrete_metric = runningNDCG.init(
                 targetsForCurrentRanking.begin(),
                 targetsForCurrentRanking.end());
-            _discrete_metric() += _cur_discrete_metric;
+            // cout << "TF.DM" << _cur_discrete_metric << endl; cout.flush();
 
-            float _lambdarank_cost_query = 0;
-            float _ranknet_cost_query = 0;
-            cout << "Started computing lambdas" << endl; cout.flush();
+            double _lambdarank_cost_query = 0;
+            double _ranknet_cost_query = 0;
+            // cout << "Started computing lambdas" << endl; cout.flush();
             for (int i_rank_cur = 0; i_rank_cur < max_k; i_rank_cur++)
             {
                 int i = currentRankingWithinQuery[i_rank_cur];
-                cout << i << "," << i_rank_cur << ".";
+                // cout << i << "," << i_rank_cur << ".";
                 for (int j_rank_cur = i_rank_cur + 1; j_rank_cur != n_query_samples; j_rank_cur++)
                 {
                     int j = currentRankingWithinQuery[j_rank_cur];
-                    cout << j << "," << j_rank_cur << ".";
-                    float abs_swap_delta_ij = abs(runningNDCG.swap_delta(i_rank_cur, j_rank_cur));
-                    float basic_value = 0;
-                    float cross_lambda_ij = 0;
+                    // cout << j << "," << j_rank_cur << ".";
+                    double abs_swap_delta_ij = abs(runningNDCG.swap_delta(i_rank_cur, j_rank_cur));
+                    double basic_value = 0;
+                    double cross_lambda_ij = 0;
 
                     if (_y(i) > _y(j))
                     {
@@ -255,19 +263,16 @@ public:
 
                     _lambdarank_cost_query += abs_swap_delta_ij * basic_value;
                     _ranknet_cost_query += basic_value;
+                    // cout << "\n" << i << ", " << j << " -> " << basic_value;
                 }
-
-                _lambdarank_cost() += _lambdarank_cost_query;
-                _ranknet_cost() += _ranknet_cost_query;
             }
-            cout << "Done computing lambdas" << endl; cout.flush();
-        } while (b != n_samples);
 
-        _ranknet_cost() /= num_queries;
-        _lambdarank_cost() /= num_queries;
-        _discrete_metric() /= num_queries;
-        cout << "Done compute            | | | | | | | | | | | | |\n"; cout.flush();
-        cout << _ranknet_cost() << ", " << _lambdarank_cost() << ", " << _discrete_metric() << endl;
+            _ranknet_cost() += _ranknet_cost_query;
+            _lambdarank_cost() += _lambdarank_cost_query;
+            _discrete_metric() += _cur_discrete_metric;
+            // cout << "Done computing lambdas" << endl; cout.flush();
+        } while (b != n_samples);
+        // cout << _ranknet_cost() << ", " << _lambdarank_cost() << ", " << _discrete_metric() << endl;
     }
 };
 

@@ -14,11 +14,18 @@ from keras.engine.topology import Layer
 from keras.optimizers import SGD, Adam
 from keras.preprocessing.text import one_hot
 from tensorflow.python.framework.ops import IndexedSlicesValue
+from keras.utils import plot_model
 
 import numpy as np
 import tensorflow as tf
+from tensorflow.python import debug as tf_debug
 import sklearn.preprocessing
 from lambdarank import *
+
+K.set_floatx("float64")
+
+# Activate tfdbg debugging.
+# K.set_session(tf_debug.LocalCLIDebugWrapperSession(K.get_session()))
 
 def random_initializer(axis):
     def func(shape, dtype=None):
@@ -28,6 +35,7 @@ def random_initializer(axis):
     return func
 
 def random_init_unit_norm(shape, dtype=None):
+    retval = np.random.normal(size=shape, dtype=dtype)
     retval /= np.linalg.norm(retval)
     return retval
 
@@ -92,7 +100,7 @@ class Slide2VecScoringModel(object):
 
         dotProductOutputs = Dot(-1)([slide_embedding, wordVecDimReducedAndAligned])
 
-        query_index_floats = Lambda(lambda x:tf.to_float(x))(query_index_input)
+        query_index_floats = Lambda(lambda x:tf.to_double(x))(query_index_input)
 
         concatedOutput = Concatenate()([dotProductOutputs, query_index_floats])
         self.model = Model(
@@ -100,19 +108,39 @@ class Slide2VecScoringModel(object):
             outputs=concatedOutput)
 
     def fit(self, X, y, rids, qids, max_k=20):
+        if not isinstance(qids, np.ndarray):
+            qids = np.array(qids)
+        if not isinstance(rids, np.ndarray):
+            rids = np.array(rids)
         # Loss calculatoin needs to know result Ids and query Ids.
         lossObject = LambdaRankLoss(max_k=max_k)
-        # optiObject = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
-        optiObject = Adam(lr=0.01, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
+        optiObject = SGD(lr=0.00001, decay=1e-5, momentum=0.4, nesterov=True)
+        # optiObject = Adam(lr=0.01, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
         self.model.compile(loss=lossObject, optimizer=optiObject)
-        y = y.reshape(50,1).astype(float)
-        qids = np.array(qids, dtype=float).reshape(50,1)
-        t=np.concatenate([y, qids], axis=-1)
-        import pdb;pdb.set_trace()
-        self.model.fit(x=[X, rids, qids], y=t)
+        # self.model.compile(loss="mean_squared_error", optimizer=optiObject)
 
-    def predict(self, X, rids):
-        return self.model.predict([rids, X])
+        # Prepare inputs and send to model.fit.
+        temp_y = y.reshape(y.shape[0],1).astype("float64")
+        temp_qids = np.array(qids, dtype="float64").reshape(len(qids),1)
+        y_to_send=np.concatenate([temp_y, temp_qids], axis=-1)
+        x_to_send=[X, rids, qids]
+        num_samples = X.shape[0]
+
+        ## IMPORTANT ##
+        # DONT change batch_size. 
+        # AND
+        # DONT shuffle.
+        ## IMPORTANT ##
+        plot_model(self.model, to_file="plot.png")
+        self.model.fit(x_to_send, y_to_send, batch_size=num_samples, shuffle=False, epochs=2000)
+
+    def predict(self, X, rids, qids):
+        # Prepare inputs and send to model.fit.
+        ## IMPORTANT ##
+        # DONT change batch_size. 
+        ## IMPORTANT ##
+        num_samples = X.shape[0]
+        return self.model.predict([X, rids, qids], batch_size=num_samples)
 
     def get_weights(self):
         retval = K.get_session().run(self.model.trainable_weights)
