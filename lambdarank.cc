@@ -222,8 +222,6 @@ public:
                     {
                         cross_lambda_ij = -abs_swap_delta_ij / (1 + exp(_y_pred(i) - _y_pred(j)));
 
-                        _lambdas(i) += cross_lambda_ij;
-                        _lambdas(j) += cross_lambda_ij;
 #if 0
                         if (i == debugIndex)
                         {
@@ -241,8 +239,6 @@ public:
                     {
                         cross_lambda_ij = abs_swap_delta_ij / (1 + exp(_y_pred(j) - _y_pred(i)));
 
-                        _lambdas(i) -= cross_lambda_ij;
-                        _lambdas(j) -= cross_lambda_ij;
 #if 0
                         if (i == debugIndex)
                         {
@@ -261,6 +257,9 @@ public:
                         basic_value = log(0.5*exp(_y_pred(j) - _y_pred(i))
                             + 0.5*exp(_y_pred(i) - _y_pred(j)));
                     }
+
+                    _lambdas(i) += cross_lambda_ij;
+                    _lambdas(j) -= cross_lambda_ij;
 
                     _lambdarank_cost_query += abs_swap_delta_ij * basic_value;
                     _ranknet_cost_query += basic_value;

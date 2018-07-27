@@ -20,6 +20,7 @@ def query_lambdas(qid, y, y_pred, metric):
     discrete_metric = metric.evaluate(qid, targetsForCurrentRanking)
 
     cross_lambdas = np.zeros((n_samples, n_samples))
+    lambdarank_cost_breakup = np.zeros((n_samples, n_samples))
     ranknet_cost = 0
     lambdarank_cost = 0
     pairCount = 0
@@ -51,21 +52,26 @@ def query_lambdas(qid, y, y_pred, metric):
 
             pairCount += 1
             lambdarank_cost += ranknet_cost_delta * abs(delta_metric)
+            lambdarank_cost_breakup[i,j] = ranknet_cost_delta * abs(delta_metric)
             ranknet_cost += ranknet_cost_delta
             # print(i, j, ranknet_cost_delta)
 
+    # Scaling down by 2, to take care of double counting.
     lambdarank_cost /= 2
+    lambdarank_cost_breakup /= 2
     ranknet_cost /= 2
 
     straight_lambdas = np.zeros((n_samples,))
     for i in range(n_samples):
         for j in range(n_samples):
-            if (y[i] > y[j]):
-                straight_lambdas[i] += cross_lambdas[i,j]
-            elif (y[i] < y[j]):
-                straight_lambdas[i] -= cross_lambdas[i,j]
+            straight_lambdas[i] += cross_lambdas[i,j]
+            # if (y[i] > y[j]):
+            #     straight_lambdas[i] += cross_lambdas[i,j]
+            # elif (y[i] < y[j]):
+            #     straight_lambdas[i] -= cross_lambdas[i,j]
 
-    return ranknet_cost, discrete_metric, lambdarank_cost, straight_lambdas, pairCount  
+    return (ranknet_cost, lambdarank_cost, discrete_metric, straight_lambdas,
+            cross_lambdas, lambdarank_cost_breakup, pairCount)
 
 def lambdarank_ref(qids, y, y_pred, metric):
     n_samples = y.shape[0]
@@ -77,7 +83,7 @@ def lambdarank_ref(qids, y, y_pred, metric):
     metric = NDCG(k=7)
     n_queries = 0
     for qid, a, b in get_groups(qids):
-        (r, d, l, lambdas[a:b], p) = query_lambdas(qid, y[a:b], y_pred[a:b], metric)
+        (r, l, d, lambdas[a:b], _, _, p) = query_lambdas(qid, y[a:b], y_pred[a:b], metric)
         ranknet_cost += r
         lambdarank_cost += l
         discrete_metric += d
