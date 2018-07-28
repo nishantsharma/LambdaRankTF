@@ -3,6 +3,11 @@
 
 using namespace std;
 
+/*
+    Class to efficiently compute NDCG scores.
+    Also, fast implementation of delta NDCG. That means quickly finding out of
+    change in NDCG score if two indices are swapped.
+*/
 class RunningNDCG
 {
     int max_k;
@@ -10,6 +15,12 @@ class RunningNDCG
     vector<double> targets;
     double ideal_dcg, cur_dcg;
 public:
+    /*
+    Constructor:
+
+    Params:
+        max_k determines the number of top ranking results that a user looks at.
+    */
     RunningNDCG(int max_k):discounts(max_k)
     {
         this->max_k = max_k;
@@ -19,9 +30,22 @@ public:
         }
     }
 
+    /*
+    Init: This function loads target scores of an input ranking. It returns 
+        the NDCG score of the given ranking. In addition, all subsequent swap_deltas
+        work on this base ranking.
+
+    Params:
+        Iterator range to pick up target scores from.
+
+    Returns:
+        The NDCG score of the given ranking.
+
+    */
     template<class TargetIterator>
     double init(TargetIterator targetsBegin, TargetIterator targetsEnd)
     {
+        // Save target scores into this->targets.
         this->targets.clear();
         auto tIter = targetsBegin;
         while(tIter != targetsEnd)
@@ -30,13 +54,15 @@ public:
             tIter++;
         }
 
+        // Sort by ranking targets to obtain ideal socre.
         vector<double> ideal_targets=targets;
         sort(
             ideal_targets.begin(),
             ideal_targets.end(),
             [](double x, double y) {return x>y; });
 
-        ideal_dcg = 0; // This line is required to use calc correctly.
+        // Calculate ideal DCG.
+        ideal_dcg = 0;
         for (int i = 0; i < max_k; i++)
         {
             ideal_dcg += ideal_targets[i] * discounts[i];
@@ -46,6 +72,7 @@ public:
             ideal_dcg = 1;
         }
 
+        // Compute current DCG.
         cur_dcg = 0;
         for (int i = 0; i < max_k; i++)
         {
@@ -59,6 +86,9 @@ public:
         return cur_dcg / ideal_dcg;
     }
 
+    /*
+    * Change in score if we swap i and j.
+    */
     double swap_delta(int i, int j) 
     {
         // Remove i&j contribution to DCG.
@@ -69,6 +99,9 @@ public:
         return swapped_dcg_delta / ideal_dcg;
     }
 
+    /*
+    NDCG score for an input target array. Only first max_k targets are picked.
+    */
     template<typename T>
     double calc(T targets)
     {

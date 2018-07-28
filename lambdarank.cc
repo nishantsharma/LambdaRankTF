@@ -1,4 +1,4 @@
-/// \file lambda_rank.cc
+/// \file lambdarank.cc
 /// \author Nishant Sharma
 /// \brief Implementation of a LambdaRank's cost calculations as an Op in Tensorflow.
 
@@ -21,8 +21,9 @@ using namespace boost;
  *    Attributes:
  *        max_k: Maximum top rankers considered.
  *    Inputs:
- *        y: Array of (targetRating, qid).
- *        y_pred: Array of (computed Scores, qid).
+ *        qid: Int vector of query IDs. All results from the same query must come together.
+ *        y: Int vector of target ratings.
+ *        y_pred: Float64 vector of computed scores.
  *    Outputs:
  *        ranknet_cost: Value of current Cross Entropy Cost "Function" as per RankNet algorithm.
  *        lambdarank_cost: Value of current Cross Entropy Cost "Function" as per LambdaRank algorithm.
@@ -33,7 +34,7 @@ using namespace boost;
 REGISTER_OP("LambdaRank")
   .Attr("max_k: int")
   .Input("qid: int32")
-  .Input("y: double")
+  .Input("y: int32")
   .Input("y_pred: double")
   .Output("ranknet_cost: double")
   .Output("lambdarank_cost: double")
@@ -121,7 +122,7 @@ public:
 
         // Eigen tensors for input data access
         auto _qid = qid.vec<int32>();
-        auto _y = y.vec<double>();
+        auto _y = y.vec<int32>();
         auto _y_pred = y_pred.vec<double>();
 #if 0
         cout << "Moved compute              | | | | | | | | | | | | |\n"; cout.flush();
@@ -218,7 +219,7 @@ public:
                     double basic_value = 0;
                     double cross_lambda_ij = 0;
 
-                    if (int(_y(i)) > int(_y(j)))
+                    if (_y(i) > _y(j))
                     {
                         cross_lambda_ij = -abs_swap_delta_ij / (1 + exp(_y_pred(i) - _y_pred(j)));
 
@@ -235,7 +236,7 @@ public:
 
                         basic_value = log(1 + exp(_y_pred(j) - _y_pred(i)));
                     }
-                    else if (int(_y(i)) < int(_y(j)))
+                    else if (_y(i) < _y(j))
                     {
                         cross_lambda_ij = abs_swap_delta_ij / (1 + exp(_y_pred(j) - _y_pred(i)));
 

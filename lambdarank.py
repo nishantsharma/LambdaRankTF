@@ -5,12 +5,21 @@ Gradients for the LambdaRank implementation.
 .. moduleauthor:: Nishant Sharma
 """
 
+import os
 import tensorflow as tf
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import sparse_ops
 
-lambdarank_module = tf.load_op_library('./liblambdarank.so')
+if os.name == "posix":
+    libLambdaRankPath = os.path.dirname(__file__) + "/liblambdarank.so"
+elif os.name == "nt":
+    libLambdaRankPath = os.path.dirname(__file__) + "/liblambdarank.dll"
+else:
+    libLambdaRankPath = None
+
+if libLambdaRankPath and os.path.exists(libLambdaRankPath):
+    lambdarank_module = tf.load_op_library(libLambdaRankPath)
 
 @ops.RegisterGradient("LambdaRank")
 def LambdaRankGradient(op,
@@ -25,11 +34,12 @@ def LambdaRankGradient(op,
         to find the inputs and outputs of the original op.
     :param grad: gradient with respect to the output of the `lambdarank` op.
     :return: gradients with respect to the input of `lambdarank`.
+
+    PLEASE NOTE: Although, the OP has other outputs, the differentiation works only
+    w.r.t. lambdarank_score.
     """
-    # import pdb;pdb.set_trace()
     lambdas = op.outputs[3]
     grad_wrt_ypred = tf.multiply(grad_lambdarank_cost, lambdas)
-    # import pdb;pdb.set_trace()
     return [None, None, grad_wrt_ypred]
 
 class LambdaRankLoss(object):
@@ -38,7 +48,7 @@ class LambdaRankLoss(object):
 
     def __call__(self, y, y_pred):
         _qid = tf.to_int32(y[...,1])
-        _y = y[...,0]
+        _y = tf.to_int32(y[...,0])
         _y_pred = y_pred[...,0]
         lambdaRankNode = lambdarank_module.lambda_rank(_qid, _y, _y_pred, self.max_k)
         return lambdaRankNode.lambdarank_cost
