@@ -3,8 +3,7 @@ we use this OP as a loss function in our keras based deep learning ranking appli
 The ranking application embeds slide objects into d-dimensional space(slide2vec), such
 that we obtain best LambdaRank scores.
 
-    At the time of this writing, there are other LambdaRank implementations available in open source. However, none of them can be integrated into TensorFlow to optimize
-a deep learning model like this one. Test code is provided alongside.
+At the time of this writing, there are other LambdaRank implementations available in open source. However, none of them can be integrated into TensorFlow to optimize a deep learning model like this one. Test code is provided alongside.
 
 Building the OP module:
     Following commands were issued to build the module.
