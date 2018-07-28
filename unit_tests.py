@@ -9,7 +9,7 @@ from attrdict import AttrDict
 import unittest
 import numpy as np
 import tensorflow as tf
-from lambdarank import lambdarank_module
+from lambdarank import lambdarank_tf
 from ref_impl import lambdarank_ref, calc_lambdas
 from slide2vecRanking import Slide2VecRankingModel
 
@@ -32,25 +32,6 @@ def generateInputs():
     qids =  np.array([int(i/numSlides) for i in range(n_samples)])
     y_pred = np.random.rand(n_samples)
     return AttrDict(locals())
-
-def lambdarank_tf(qids, y, y_pred, max_k):
-    """
-    Run Tensorflow version of LambdaRank on passed inputs.
-    """
-    n_samples = len(y)
-    _qids = tf.placeholder(tf.int32, shape = (n_samples,))
-    _y = tf.placeholder(tf.int32, shape = (n_samples,))
-    _y_pred = tf.placeholder(tf.float64, shape = (n_samples,))
-
-    # Build feed_dict and feed it to TF session to obtain OP output.
-    feed_dict = {_qids: qids, _y:y, _y_pred:y_pred}
-    tf_value_nodes = lambdarank_module.lambda_rank(_qids, _y, _y_pred, max_k)
-
-    # Obtain TF OP output.
-    with tf.Session('') as sess:
-        tf_values = sess.run(tf_value_nodes, feed_dict=feed_dict)
-
-    return tf_values
 
 def runTest1():
     """

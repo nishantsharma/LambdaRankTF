@@ -42,6 +42,25 @@ def LambdaRankGradient(op,
     grad_wrt_ypred = tf.multiply(grad_lambdarank_cost, lambdas)
     return [None, None, grad_wrt_ypred]
 
+def lambdarank_tf(qids, y, y_pred, max_k):
+    """
+    Run Tensorflow version of LambdaRank on passed inputs.
+    """
+    n_samples = len(y)
+    _qids = tf.placeholder(tf.int32, shape = (n_samples,))
+    _y = tf.placeholder(tf.int32, shape = (n_samples,))
+    _y_pred = tf.placeholder(tf.float64, shape = (n_samples,))
+
+    # Build feed_dict and feed it to TF session to obtain OP output.
+    feed_dict = {_qids: qids, _y:y, _y_pred:y_pred}
+    tf_value_nodes = lambdarank_module.lambda_rank(_qids, _y, _y_pred, max_k)
+
+    # Obtain TF OP output.
+    with tf.Session('') as sess:
+        tf_values = sess.run(tf_value_nodes, feed_dict=feed_dict)
+
+    return tf_values
+
 class LambdaRankLoss(object):
     def __init__(self, max_k=20):
         self.max_k = max_k
