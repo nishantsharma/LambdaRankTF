@@ -94,18 +94,18 @@ class Slide2VecRankingModel(object):
     It uses those ratings to embed slides into a d-dimensional space such that
     LambdaRank scores are optimal.
     """
-    def __init__(self, wordVecLenIn, slideVecLen, slideCount, input_length):
+    def __init__(self, queryVecLenIn, slideVecLen, slideCount, input_length):
         """
-            wordVecLenIn: Length of each query word vector. Use of word2vec embedding is implied.
+            queryVecLenIn: Length of each query word vector. Use of word2vec embedding is implied.
             slideVecLen: Length of slide vector embedding to find.
             slideCount: Number of slides in the search universe.
         """
         if input_length is None:
             input_length = slideCount
-        self.wordVecLenIn = wordVecLenIn
+        self.queryVecLenIn = queryVecLenIn
 
         # Build input layers.
-        wordvec_input = Input(shape=(wordVecLenIn,), name='queryVecInput')
+        query_vec_input = Input(shape=(queryVecLenIn,), name='queryVecInput')
         slide_index_input = Input(shape=(input_length,), dtype='int32', name='slideIndexInput')
         query_index_input = Input(shape=(input_length,), dtype='int32', name='queryIndexInput')
 
@@ -122,18 +122,18 @@ class Slide2VecRankingModel(object):
                                     )(slide_index_input)
 
         # Rotating/aligning dimensionally reduced word2vec vectors before taking dot product with slide vectors.
-        # wordVecLen * slideVecLen
-        # wordVecDimReducedAndAligned = MatrixProductLayer(slideVecLen, name="wordSlideAlignmentMatrix")(wordvecDimReduced)
-        wordVecDimReducedAndAligned_constraint=constraints.UnitNorm(axis=(-2,))
-        wordVecDimReducedAndAligned_initializer=random_initializer(axis=(-2,))
-        wordVecDimReducedAndAligned = MatrixProductLayer(
+        # queryVecLen * slideVecLen
+        # queryVecDimReducedAndAligned = MatrixProductLayer(slideVecLen, name="wordSlideAlignmentMatrix")(queryVecDimReduced)
+        queryVecDimReducedAndAligned_constraint=constraints.UnitNorm(axis=(-2,))
+        queryVecDimReducedAndAligned_initializer=random_initializer(axis=(-2,))
+        queryVecDimReducedAndAligned = MatrixProductLayer(
             slideVecLen,
-            weight_initializer=wordVecDimReducedAndAligned_initializer,
-            weight_constraint=wordVecDimReducedAndAligned_constraint,
-            name="wordSlideAlignmentMatrix")(wordvec_input)
+            weight_initializer=queryVecDimReducedAndAligned_initializer,
+            weight_constraint=queryVecDimReducedAndAligned_constraint,
+            name="wordSlideAlignmentMatrix")(query_vec_input)
 
         # Dot product of query word's vector and embedding vector of the slide.
-        dotProductOutputs = Dot(-1)([slide_embedding, wordVecDimReducedAndAligned])
+        dotProductOutputs = Dot(-1)([slide_embedding, queryVecDimReducedAndAligned])
 
         # Our loss function needs to know about query ID, in addition to the query
         # vector. For that purpose, bundling query indices into the predicted output.
@@ -142,7 +142,7 @@ class Slide2VecRankingModel(object):
 
         # Define the model.
         self.model = Model(
-            inputs=[wordvec_input, slide_index_input, query_index_input],
+            inputs=[query_vec_input, slide_index_input, query_index_input],
             outputs=concatedOutput)
 
     @classmethod
@@ -197,7 +197,7 @@ class Slide2VecRankingModel(object):
         temp_qids = np.array(qids, dtype="float64").reshape(len(qids),1)
         y_to_send=np.concatenate([temp_y, temp_qids], axis=-1)
         x_to_send=[X, rids, qids]
-        num_samples = X.shape[0]
+        num_samples = len(X)
 
         ## IMPORTANT ##
         # DONT change batch_size. 
@@ -212,7 +212,7 @@ class Slide2VecRankingModel(object):
         qids = self.__getIntQids(qids)
         if not isinstance(rids, np.ndarray):
             rids = np.array(rids)
-        num_samples = X.shape[0]
+        num_samples = len(X)
         ## IMPORTANT ##
         # DONT change batch_size. 
         ## /IMPORTANT ##

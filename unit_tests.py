@@ -19,14 +19,13 @@ def generateInputs():
     """
     numSlides = 10
     numQueries = 5
-    wordVecLenIn=300
-    wordVecLenReduced=50
+    queryVecLenIn=300
     slideVecLen=50
     input_length=1
     maxRating = numSlides/2
     max_k = 7
     n_samples = numSlides * numQueries
-    X = np.random.rand(numSlides * numQueries, wordVecLenIn)
+    X = np.random.rand(numSlides * numQueries, queryVecLenIn)
     y = np.random.randint(0, maxRating+1, n_samples)
     rids = np.array([int(i%numSlides) for i in range(n_samples)])
     qids =  np.array([int(i/numSlides) for i in range(n_samples)])
@@ -112,7 +111,7 @@ def runTest3():
     inputs = generateInputs()
 
     scoringModel = Slide2VecRankingModel(
-        wordVecLenIn=inputs.wordVecLenIn,
+        queryVecLenIn=inputs.queryVecLenIn,
         slideVecLen=inputs.slideVecLen,
         slideCount=inputs.numSlides,
         input_length=inputs.input_length)

@@ -63,7 +63,8 @@ public:
 
         // Calculate ideal DCG.
         ideal_dcg = 0;
-        for (int i = 0; i < max_k; i++)
+        int k = min(max_k, int(targets.size()));
+        for (int i = 0; i < k; i++)
         {
             ideal_dcg += ideal_targets[i] * discounts[i];
         }
@@ -74,7 +75,7 @@ public:
 
         // Compute current DCG.
         cur_dcg = 0;
-        for (int i = 0; i < max_k; i++)
+        for (int i = 0; i < k; i++)
         {
             cur_dcg += targets[i] * discounts[i];
         }
@@ -106,7 +107,8 @@ public:
     double calc(T targets)
     {
         cur_dcg = 0;
-        for (int i = 0; i < max_k; i++)
+        int k = min(max_k, int(targets.size()));
+        for (int i = 0; i < k; i++)
         {
             cur_dcg += (pow(2, targets[i]) - 1) * discounts[i];
         }

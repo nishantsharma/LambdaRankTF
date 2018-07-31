@@ -102,7 +102,6 @@ public:
         int max_k = (this->max_k > n_samples) ? n_samples : this->max_k;
         DCHECK_EQ(y.dim_size(0), n_samples);
         DCHECK_EQ(y_pred.dim_size(0), n_samples);
-        // cout <<"NUM_SAMPLES="<< n_samples;
 
         // create output shapes
         TensorShape lambdas_shape;
@@ -149,7 +148,7 @@ public:
         int pairCount = 0;
 
         // Initialize lambdas.
-        for (int i = 0; i < n_samples + 1; i++)
+        for (int i = 0; i < n_samples; i++)
         {
             _lambdas(i) = 0;
         }
@@ -173,6 +172,7 @@ public:
 
             // Number of samples in the current query.
             int n_query_samples = b - a;
+            int k = min(max_k, n_query_samples);
 
             // cout << "Current query range "<<a<<", "<<b<<endl; cout.flush();
             // Increment number of queries found.
@@ -207,7 +207,7 @@ public:
             double _lambdarank_cost_query = 0;
             double _ranknet_cost_query = 0;
             // cout << "Started computing lambdas" << endl; cout.flush();
-            for (int i_rank_cur = 0; i_rank_cur < max_k; i_rank_cur++)
+            for (int i_rank_cur = 0; i_rank_cur < k; i_rank_cur++)
             {
                 int i = currentRankingWithinQuery[i_rank_cur];
                 // cout << i << "," << i_rank_cur << ".";
