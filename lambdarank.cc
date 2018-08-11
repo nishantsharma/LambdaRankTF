@@ -16,31 +16,8 @@
 using namespace tensorflow;
 using namespace boost;
 
-/*
- * Function LambdaRank 
- *    Attributes:
- *        max_k: Maximum top rankers considered.
- *    Inputs:
- *        qid: Int vector of query IDs. All results from the same query must come together.
- *        y: Int vector of target ratings.
- *        y_pred: Float64 vector of computed scores.
- *    Outputs:
- *        ranknet_cost: Value of current Cross Entropy Cost "Function" as per RankNet algorithm.
- *        lambdarank_cost: Value of current Cross Entropy Cost "Function" as per LambdaRank algorithm.
- *                              Uses NDCG factors from current iteration.
- *        discrete_metric: Average NDCG score for each query in the set.
- *        lambdas: Gradients of lambdarank_cost w.r.t. predicted scores(y_pred).
- */
-REGISTER_OP("LambdaRank")
-  .Attr("max_k: int")
-  .Input("qid: int32")
-  .Input("y: int32")
-  .Input("y_pred: double")
-  .Output("ranknet_cost: double")
-  .Output("lambdarank_cost: double")
-  .Output("discrete_metric: double")
-  .Output("lambdas: double")
-  .SetShapeFn([](::tensorflow::shape_inference::InferenceContext* c) {
+Status LambdaRanktShapeFn(::tensorflow::shape_inference::InferenceContext* c)
+{
     shape_inference::ShapeHandle qid_shape, y_shape, y_pred_shape;
     TF_RETURN_IF_ERROR(c->WithRank(c->input(0), 1, &qid_shape));
     TF_RETURN_IF_ERROR(c->WithRank(c->input(1), 1, &y_shape));
@@ -63,11 +40,39 @@ REGISTER_OP("LambdaRank")
     c->set_output(3, c->Vector(n_samples));
 
     return Status::OK();
-  });
+}
+
+/*
+ * Function LambdaRank 
+ *    Attributes:
+ *        max_k: Maximum top rankers considered.
+ *    Inputs:
+ *        qid: Int vector of query IDs. All results from the same query must come together.
+ *        y: Int vector of target ratings.
+ *        y_pred: Float64 vector of computed scores.
+ *    Outputs:
+ *        ranknet_cost: Value of current Cross Entropy Cost "Function" as per RankNet algorithm.
+ *        lambdarank_cost: Value of current Cross Entropy Cost "Function" as per LambdaRank algorithm.
+ *                              Uses NDCG factors from current iteration.
+ *        discrete_metric: Average NDCG score for each query in the set.
+ *        lambdas: Gradients of lambdarank_cost w.r.t. predicted scores(y_pred).
+ */
+REGISTER_OP("LambdaRank")
+  .Attr("max_k: int")
+  .Attr("T: {float, double}")
+  .Input("qid: int32")
+  .Input("y: int32")
+  .Input("y_pred: T")
+  .Output("ranknet_cost: T")
+  .Output("lambdarank_cost: T")
+  .Output("discrete_metric: T")
+  .Output("lambdas: T")
+  .SetShapeFn(LambdaRanktShapeFn);
 
 /// \brief Implementation of an LambdaRank operation.
 /// \param context
 /// \author Nishant Sharma
+template<class T>
 class LambdaRankOp : public OpKernel {
     // Get the attributes.
     int max_k;
@@ -122,7 +127,7 @@ public:
         // Eigen tensors for input data access
         auto _qid = qid.vec<int32>();
         auto _y = y.vec<int32>();
-        auto _y_pred = y_pred.vec<double>();
+        auto _y_pred = y_pred.vec<T>();
 #if 0
         cout << "Moved compute              | | | | | | | | | | | | |\n"; cout.flush();
         for (int i = 0; i < n_samples; i++)
@@ -136,10 +141,10 @@ public:
 #endif
 
         // Eigen tensors for output data access
-        auto _lambdas = lambdas->vec<double>();
-        auto _ranknet_cost = ranknet_cost->scalar<double>();
-        auto _lambdarank_cost = lambdarank_cost->scalar<double>();
-        auto _discrete_metric = discrete_metric->scalar<double>();
+        auto _lambdas = lambdas->vec<T>();
+        auto _ranknet_cost = ranknet_cost->scalar<T>();
+        auto _lambdarank_cost = lambdarank_cost->scalar<T>();
+        auto _discrete_metric = discrete_metric->scalar<T>();
 
         // Initialize scores.
         _ranknet_cost() = 0;
@@ -154,7 +159,7 @@ public:
         }
 
         // Used to calcualte NDCG and delta-NDCG.
-        RunningNDCG runningNDCG(max_k);
+        RunningNDCG<T> runningNDCG(max_k);
 
         int a = -1, b = 0;
         int num_queries = 0;
@@ -192,20 +197,20 @@ public:
             // cout << "After sorting" << endl; cout.flush();
 
             // targetsForCurrentRanking = y[currentRankingWithinQuery]
-            std::vector<double> targetsForCurrentRanking(b - a);
+            std::vector<T> targetsForCurrentRanking(b - a);
             std::transform(currentRankingWithinQuery.begin(),
                 currentRankingWithinQuery.end(),
                 targetsForCurrentRanking.begin(),
                 [&_y](int i) {return _y(i); });
 
             // cout << "After transform." << endl; cout.flush();
-            double _cur_discrete_metric = runningNDCG.init(
+            T _cur_discrete_metric = runningNDCG.init(
                 targetsForCurrentRanking.begin(),
                 targetsForCurrentRanking.end());
             // cout << "TF.DM" << _cur_discrete_metric << endl; cout.flush();
 
-            double _lambdarank_cost_query = 0;
-            double _ranknet_cost_query = 0;
+            T _lambdarank_cost_query = 0;
+            T _ranknet_cost_query = 0;
             // cout << "Started computing lambdas" << endl; cout.flush();
             for (int i_rank_cur = 0; i_rank_cur < k; i_rank_cur++)
             {
@@ -215,9 +220,9 @@ public:
                 {
                     int j = currentRankingWithinQuery[j_rank_cur];
                     // cout << j << "," << j_rank_cur << ".";
-                    double abs_swap_delta_ij = abs(runningNDCG.swap_delta(i_rank_cur, j_rank_cur));
-                    double basic_value = 0;
-                    double cross_lambda_ij = 0;
+                    T abs_swap_delta_ij = abs(runningNDCG.swap_delta(i_rank_cur, j_rank_cur));
+                    T basic_value = 0;
+                    T cross_lambda_ij = 0;
 
                     if (_y(i) > _y(j))
                     {
@@ -290,4 +295,10 @@ public:
     }
 };
 
-REGISTER_KERNEL_BUILDER(Name("LambdaRank").Device(DEVICE_CPU), LambdaRankOp);
+REGISTER_KERNEL_BUILDER(
+    Name("LambdaRank").Device(DEVICE_CPU).TypeConstraint<float>("T"),
+    LambdaRankOp<float>);
+
+REGISTER_KERNEL_BUILDER(
+    Name("LambdaRank").Device(DEVICE_CPU).TypeConstraint<double>("T"),
+    LambdaRankOp<double>);

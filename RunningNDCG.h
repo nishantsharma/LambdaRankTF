@@ -8,12 +8,13 @@ using namespace std;
     Also, fast implementation of delta NDCG. That means quickly finding out of
     change in NDCG score if two indices are swapped.
 */
+template<class T>
 class RunningNDCG
 {
     int max_k;
-    vector<double> discounts;
-    vector<double> targets;
-    double ideal_dcg, cur_dcg;
+    vector<T> discounts;
+    vector<T> targets;
+    T ideal_dcg, cur_dcg;
 public:
     /*
     Constructor:
@@ -26,7 +27,7 @@ public:
         this->max_k = max_k;
         for (int i = 0; i < max_k; i++)
         {
-            discounts[i] = 1 / log2(double(i + 2));
+            discounts[i] = 1 / log2((T)(i + 2));
         }
     }
 
@@ -43,7 +44,7 @@ public:
 
     */
     template<class TargetIterator>
-    double init(TargetIterator targetsBegin, TargetIterator targetsEnd)
+    T init(TargetIterator targetsBegin, TargetIterator targetsEnd)
     {
         // Save target scores into this->targets.
         this->targets.clear();
@@ -55,11 +56,11 @@ public:
         }
 
         // Sort by ranking targets to obtain ideal socre.
-        vector<double> ideal_targets=targets;
+        vector<T> ideal_targets=targets;
         sort(
             ideal_targets.begin(),
             ideal_targets.end(),
-            [](double x, double y) {return x>y; });
+            [](T x, T y) {return x>y; });
 
         // Calculate ideal DCG.
         ideal_dcg = 0;
@@ -90,12 +91,12 @@ public:
     /*
     * Change in score if we swap i and j.
     */
-    double swap_delta(int i, int j) 
+    T swap_delta(int i, int j) 
     {
         // Remove i&j contribution to DCG.
-        double discount_i = (i >= max_k) ? 0 : discounts[i];
-        double discount_j = (j >= max_k) ? 0 : discounts[j];
-        double swapped_dcg_delta = (discount_j - discount_i) * (targets[i] - targets[j]);
+        T discount_i = (i >= max_k) ? 0 : discounts[i];
+        T discount_j = (j >= max_k) ? 0 : discounts[j];
+        T swapped_dcg_delta = (discount_j - discount_i) * (targets[i] - targets[j]);
 
         return swapped_dcg_delta / ideal_dcg;
     }
@@ -103,8 +104,8 @@ public:
     /*
     NDCG score for an input target array. Only first max_k targets are picked.
     */
-    template<typename T>
-    double calc(T targets)
+    template<typename TargetsContainerType>
+    T calc(TargetsContainerType targets)
     {
         cur_dcg = 0;
         int k = min(max_k, int(targets.size()));
