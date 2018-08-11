@@ -31,6 +31,8 @@ class RunningNDCG(object):
         k = min(self.max_k, len(targets))
         cur_dcg = np.dot(self.discounts[0:k], targets[0:k])
         ideal_dcg = np.dot(self.discounts[0:k], np.array(sorted(targets, key=lambda r:-r)[0:k]))
+        if abs(ideal_dcg) < 1e-10:
+            ideal_dcg = 1
         return cur_dcg /ideal_dcg
 
     def calc_mean(self, qids, y, y_pred):
