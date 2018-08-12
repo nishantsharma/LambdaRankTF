@@ -23,7 +23,8 @@ import sklearn.preprocessing
 from lambdarank import *
 
 # Using float64. But float32 may work equally well.
-K.set_floatx("float64")
+NumberType="float64"
+K.set_floatx(NumberType)
 
 # Activate tfdbg debugging.
 # K.set_session(tf_debug.LocalCLIDebugWrapperSession(K.get_session()))
@@ -78,7 +79,8 @@ class Slide2VecRankingModel(object):
 
         # Our loss function needs to know about query ID, in addition to the query
         # vector. For that purpose, bundling query indices into the predicted output.
-        query_index_floats = Lambda(lambda x:tf.to_double(x))(query_index_input)
+        toNumberType = tf.to_double if (NumberType == "float64") else tf.to_float
+        query_index_floats = Lambda(lambda x:toNumberType(x))(query_index_input)
         concatedOutput = Concatenate()([dotProductOutputs, query_index_floats])
 
         # Define the model.
@@ -132,8 +134,8 @@ class Slide2VecRankingModel(object):
         self.model.compile(loss=lossObject, optimizer=optiObject)
 
         # Prepare inputs and send model.to fit.
-        temp_y = y.reshape(y.shape[0],1).astype("float64")
-        temp_qids = np.array(qids, dtype="float64").reshape(len(qids),1)
+        temp_y = y.reshape(y.shape[0],1).astype(NumberType)
+        temp_qids = np.array(qids, dtype=NumberType).reshape(len(qids),1)
         y_to_send=np.concatenate([temp_y, temp_qids], axis=-1)
         x_to_send=[X, qids, rids]
         num_samples = len(X)

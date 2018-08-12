@@ -9,15 +9,13 @@ class RunningNDCG(object):
         self.discounts = np.array([1/math.log(i+2, 2) for i in range(max_k)])
 
     def init(self, targets):
-        try:
-            self.targets = np.array([math.pow(2, t)-1 for t in targets])
-            self.ideal_dcg = np.dot(self.discounts, np.array(sorted(self.targets, key=lambda r:-r)[0:self.max_k]))
-            if abs(self.ideal_dcg) < 1e-10:
-                self.ideal_dcg = 1
-            self.cur_dcg = np.dot(self.discounts, self.targets[0:self.max_k])
-            return self.cur_dcg / self.ideal_dcg
-        except:
-            import pdb;pdb.set_trace()
+        self.targets = np.array([math.pow(2, t)-1 for t in targets])
+        self.ideal_dcg = np.dot(self.discounts, np.array(sorted(self.targets, key=lambda r:-r)[0:self.max_k]))
+        if abs(self.ideal_dcg) < 1e-10:
+            self.ideal_dcg = 1
+        self.cur_dcg = np.dot(self.discounts, self.targets[0:self.max_k])
+        return self.cur_dcg / self.ideal_dcg
+
     def swap_delta(self, i, j):
         # Remove i&j contribution to DCG.
         discount_i = 0 if i>=self.max_k else self.discounts[i]

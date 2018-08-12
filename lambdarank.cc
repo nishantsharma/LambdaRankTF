@@ -16,7 +16,7 @@
 using namespace tensorflow;
 using namespace boost;
 
-Status LambdaRanktShapeFn(::tensorflow::shape_inference::InferenceContext* c)
+Status LambdaRankShapeFn(::tensorflow::shape_inference::InferenceContext* c)
 {
     shape_inference::ShapeHandle qid_shape, y_shape, y_pred_shape;
     TF_RETURN_IF_ERROR(c->WithRank(c->input(0), 1, &qid_shape));
@@ -67,7 +67,7 @@ REGISTER_OP("LambdaRank")
   .Output("lambdarank_cost: T")
   .Output("discrete_metric: T")
   .Output("lambdas: T")
-  .SetShapeFn(LambdaRanktShapeFn);
+  .SetShapeFn(LambdaRankShapeFn);
 
 /// \brief Implementation of an LambdaRank operation.
 /// \param context

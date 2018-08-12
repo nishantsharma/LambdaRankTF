@@ -69,5 +69,6 @@ class LambdaRankLoss(object):
         _qid = tf.to_int32(y[...,1])
         _y = tf.to_int32(y[...,0])
         _y_pred = y_pred[...,0]
-        lambdaRankNode = lambdarank_module.lambda_rank(_qid, _y, _y_pred, self.max_k)
+        T="float64" if _y_pred.dtype == tf.float64 else "float32"
+        lambdaRankNode = lambdarank_module.lambda_rank(_qid, _y, _y_pred, self.max_k, T)
         return lambdaRankNode.lambdarank_cost
