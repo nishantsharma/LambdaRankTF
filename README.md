@@ -1,5 +1,5 @@
 This module implements LambdaRank as a tensorflow OP in C++. As an example application,
-we use this OP as a loss function in our keras based deep learning ranking application.
+we use this OP as a loss function in our keras based deep ranking/recommendation engine.
 The ranking application embeds slide objects into d-dimensional space(slide2vec), such
 that we obtain best LambdaRank scores.
 
